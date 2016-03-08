@@ -1,124 +1,273 @@
 <html>
+
 <head lang='zh'>
-	<title>炮弹模拟重力效果</title>
-	<!--  自定义对象 为对象添加属性和方法 用数组来存储对象 .push()方法-->
-	<meta charset='utf-8'>
-	<style type="text/css">
-	canvas{
-		margin:auto;
-		background: #cfe;
-	}
-	</style>
+    <title>鼠标拖拽弹弓</title>
+    <!--  自定义对象 为对象添加属性和方法 用数组来存储对象 .push()方法 画布的旋转 rotate（）-->
+    <meta charset='utf-8'>
+    <style type="text/css">
+    canvas {
+       
+        background: #cfe;
+    }
+    </style>
 </head>
+
 <body>
-<canvas height='600px;' width='800px;' style='block;' id='cv'></canvas>
-<form onsubmit='return fire();'>
-水平速度：<input name='hv' type='number' min='-100' max='100' id='hv'>
-垂直速度：<input name='gv' type='number' min='-100' max='100' id='gv'>
-<input id='Fire' type='submit' value='fire'></input>
-<span></span>
-</form>
+    <canvas height='800px;' width='1400px;' style='block;' id='cv'></canvas>
 </body>
 <script type="text/javascript">
-	var ctx;
-	var everything=[];//存储对象的数组 墙 球 目标
-	var timer;
-	var hv=10;
-	var gv1=0;
-	var gv2=0;
-	var gravity=2;
-	var ballX=20;
-	var ballY=20;
-	ctx=document.getElementById('cv').getContext('2d');
-	//定义球对象
-	function Ball(sx,sy,rad,styleFill){
-		this.sx=sx;//属性 球的位置
-		this.sy=sy;
-		this.rad=rad;
-		this.fillStyle=styleFill;//把要画的球的颜色存为一个属性
-		this.draw=drawBall;//方法 虽然draw是属性 但是drawBall是函数 所以draw变成一个可以调用的方法
-		this.moveit=moveBall;
+var ctx;
+var everything = []; //存储对象的数组
+var timer;
+var hv = 0; //水平初始速度
+var gv1 = 0; //垂直初始速度
+var gv2 = 0;
+var gravity = 0.5;
 
-	}
-	function drawBall(){
-		ctx.fillStyle=this.fillStyle;//使用这个对象的属性来设置画布fillStyle
-		ctx.beginPath();
-		ctx.arc(this.sx,this.sy,this.rad,0,Math.PI*2,true);
-		ctx.fill();
-	}
-	function moveBall(dx,dy){
-		this.sx=this.sx+dx;//改变球的位置属性
-		this.sy=this.sy+dy;
-	}
-	//建立一个Ball对象
-	var oBall=new Ball(ballX,ballY,20,'blue');
-	//定义墙对象和目标对象 因为都是长方形 具有的属性和方法都一样 所以放在一起定义
-	function myRectangle(sx,sy,oWidth,oHeight,styleFill){
-		this.sx=sx;//属性
-		this.sy=sy;
-		this.oWidth=oWidth;
-		this.oHeight=oHeight;
-		this.fillStyle=styleFill;
-		this.draw=drawRectangle;//方法 
-	}
-	function drawRectangle(){
-		ctx.fillStyle=this.fillStyle;
-		ctx.fillRect(this.sx,this.sy,this.oWidth,this.oHeight);
-	}
-	//建立目标对象和墙对象
-	var target=new myRectangle(300,100,80,200,'yellow');
-	var ground=new myRectangle(0,300,600,30,'gray');
-	//把建立好的对象存入everything数组
-	everything.push(oBall);
-	everything.push(target);
-	everything.push(ground);
 
-	window.onload=function(){
-		drawAll();//绘制所有对象
-		// timer=setInterval(change,50);
-		
-	}
-	function drawAll(){
-		//清除所有对象
-		ctx.clearRect(0,0,800,600);
-		//绘制所有对象 
-		for(var i=0;i<everything.length;i++){
-			everything[i].draw();
-		}
-	}
-	function change(){
-		var dx=hv;//水平位移
-		gv1=gv2;
-		gv2=gv1+gravity;
-		var dy=(gv1+gv2)*0.5;//垂直位移
-		oBall.moveit(dx,dy);
-		//判断球是否击中目标
-		var bx=oBall.sx;
-		var by=oBall.sy;
-		//如果子弹在目标范围内
-		if((bx>=target.sx)&&(bx<=(target.sx+target.oWidth))&&(by>=target.sy&&by<=(target.sy+target.oHeight))){
-			clearInterval(timer);
-		}
-		//判断球是否超出地面
-		if(by>=ground.sy){
-			clearInterval(timer);
-		}
-		//画出图形
+//子弹最初位置
+var startRockX = 200;
+var startRockY = 240+100;
+var ballX = startRockX;
+var ballY = startRockY;
+var ballRad = 10;
+var ballRadSq = ballRad * ballRad;
+var angleHu;
+var inmotion = false; //指示是否鼠标点中子弹
+
+var bear1=new Image();
+bear1.src='bear1.gif';
+var bear2=new Image();
+bear2.src='bear2.gif';
+
+ctx = document.getElementById('cv').getContext('2d');
+
+//定义弹弓对象
+function Sling(bx, by, s1x, s1y, s2x, s2y, s3x, s3y, styleFill) {
+    this.bx = bx;
+    this.by = by;
+    this.s1x = s1x;
+    this.s1y = s1y;
+    this.s2x = s2x;
+    this.s2y = s2y;
+    this.s3x = s3x;
+    this.s3y = s3y;
+    this.fillStyle = styleFill;
+    this.draw = drawSling; //方法
+    this.moveit = moveSling;
+}
+
+function drawSling() {
+    ctx.strokeStyle = this.fillStyle;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(this.bx, this.by);
+    ctx.lineTo(this.s1x, this.s1y);
+    ctx.lineTo(this.s2x, this.s2y);
+    ctx.lineTo(this.bx, this.by);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(this.s2x, this.s2y);
+    ctx.lineTo(this.s3x, this.s3y);
+    ctx.closePath();
+    ctx.stroke();
+}
+
+function moveSling(dx, dy) {
+    this.s1x = this.s1x + dx;
+    this.s1y = this.s1y + dy;
+    this.s2x = this.s2x + dx;
+    this.s2y = this.s2y + dy;
+}
+//创建弹弓对象
+var sling = new Sling(startRockX, startRockY, startRockX + 80, startRockY - 10, startRockX + 80, startRockY + 10, startRockX + 70, startRockY + 100, 'rgb(120,20,10)');
+//定义子弹对象
+function Ball(sx, sy, rad, styleFill) {
+    this.sx = sx; //属性 球的位置
+    this.sy = sy;
+    this.rad = rad;
+    this.fillStyle = styleFill; //把要画的球的颜色存为一个属性
+    this.draw = drawBall; //方法 虽然draw是属性 但是drawBall是函数 所以draw变成一个可以调用的方法
+    this.moveit = moveBall;
+
+}
+
+function drawBall() {
+    ctx.fillStyle = this.fillStyle; //使用这个对象的属性来设置画布fillStyle
+    ctx.beginPath();
+    ctx.arc(this.sx, this.sy, this.rad, 0, Math.PI * 2, true);
+    ctx.fill();
+}
+
+function moveBall(dx, dy) {
+    this.sx = this.sx + dx; //改变球的位置属性
+    this.sy = this.sy + dy;
+}
+//建立一个Ball子弹对象
+var oBall = new Ball(ballX, ballY, ballRad, 'blue');
+//定义地对象
+function myRectangle(sx, sy, oWidth, oHeight, styleFill) {
+    this.sx = sx; //属性
+    this.sy = sy;
+    this.oWidth = oWidth;
+    this.oHeight = oHeight;
+    this.fillStyle = styleFill;
+    this.draw = drawRectangle; //方法 
+}
+
+function drawRectangle() {
+    ctx.fillStyle = this.fillStyle;
+    ctx.fillRect(this.sx, this.sy, this.oWidth, this.oHeight);
+}
+//建立地对象	
+var ground = new myRectangle(0, 400, 1300, 30, 'gray');
+
+
+//创建图片对象 存放目标图片、
+function Picture(sx, sy, swidth, sheight, imga) {
+    this.sx = sx;
+    this.sy = sy;
+    this.img = imga;
+    this.swidth = swidth;
+    this.sheight = sheight;
+    this.draw = drawAnImage; //函数
+}
+
+function drawAnImage() {
+    ctx.drawImage(this.img, this.sx, this.sy, this.swidth, this.sheight);
+}
+//建立目标对象
+var target = new Picture(800,250, 125, 150, bear1); //没被击中的对象
+
+//把建立好的对象存入everything数组 并保存对象的位置以便后续用
+
+everything.push(target);
+everything.push(ground);
+everything.push(oBall);
+everything.push(sling);
+
+window.onload = function() {
+    var cvs = document.getElementById('cv');
+    cvs.addEventListener('mousedown', findBall, false);
+    cvs.addEventListener('mousemove', moveit, false);
+    cvs.addEventListener('mouseup', finish, false);
+    drawAll(); //绘制所有对象
+
+}
+
+function findBall(ev) { //判断鼠标是否点击在球上
+    var mx;
+    var my;
+    if (ev.layerX || ev.layerX == 0) {
+        mx = ev.layerX;
+        my = ev.layerY;
+    } else if (ev.offsetX || ev.offsetX == 0) {
+        mx = ev.offsetX;
+        my = ev.offsetY;
+    }
+    if (disq(mx, my, oBall.sx, oBall.sy) < ballRadSq) {
+        inmotion = true;
+        target.img=bear1;
+    	sling.bx=startRockX;
+    	sling.by=startRockY;
+    	sling.s1x=startRockX + 80;
+    	sling.s1y=startRockY - 10;
+    	sling.s2x=startRockX + 80;
+    	sling.s2y=startRockY + 10;
+    	sling.s3x=startRockX + 70;
+    	sling.s3y=startRockY + 100;
+    	clearInterval(timer);
+    	oBall.sx=sling.bx;
+    	oBall.sy=sling.by;
+        drawAll();
+    }
+}
+
+function disq(mx, my, sx, sy) {
+    return (mx - sx) * (mx - sx) + (my - sy) * (my - sy); //返回距离平方值
+}
+
+function moveit(ev) {
+	var mx;
+	var my;
+	var dx;
+	var dy;
+    if (inmotion) {
+        if (ev.layerX || ev.layerX == 0) {
+            mx = ev.layerX;
+            my = ev.layerY;
+        } else if (ev.offsetX || ev.offsetX == 0) {
+            mx = ev.offsetX;
+            my = ev.offsetY;
+        }
+        oBall.sx=mx;
+        oBall.sy=my;
+        dx=(sling.bx-mx)*0.6;
+        dy=(sling.by-my)*0.6;
+        sling.moveit(dx,dy);        
+        sling.bx=mx;
+        sling.by=my;
+        drawAll();
+    }
+}
+function finish(ev){
+	var velocity;
+	var angleSling;
+	if(inmotion)
+	{
+		inmotion=false;
+		velocity=disq(sling.bx,sling.by,sling.s1x,sling.s1y)/1000;
+		angleSling=Math.atan2(sling.by-sling.s1y,sling.s1x,sling.s1y);//计算出来的就是弧度
+		hv=Math.cos(angleSling)*velocity;
+		gv1=-Math.sin(angleSling)*velocity;
 		drawAll();
+		timer=setInterval(change,5);
+
 	}
-	function fire(){
-			ballX=20;
-			ballY=20;
-			drawAll();
-			hv=parseInt(document.getElementById('hv').value);
-			gravity=parseInt(document.getElementById('gv').value);			
-			timer=setInterval(change,50);
-			return false;
-			
-	}
-		
-	
-	
+}
+
+
+
+
+function drawAll() {
+    //清除所有对象
+    ctx.clearRect(0, 0, 1400, 800);
+    //绘制所有对象 
+    for (var i = 0; i < everything.length; i++) {
+       everything[i].draw();
+    }
+    if(target.img==bear2){
+    	ctx.font='bold 30px sans-serif';
+    	ctx.fillText('YOU WIN',600,200);
+    }
+}
+
+function change() {
+    var dx = hv; //水平位移
+    gv2 = gv1 + gravity;
+    var dy = (gv1 + gv2) * 0.5; //垂直位移
+    gv1 = gv2;
+    oBall.moveit(dx, dy);
+    //判断球是否击中目标
+    var bx = oBall.sx;
+    var by = oBall.sy;
+    //子弹打中目标一个区域内
+    if(bx>(target.sx+40)&&bx<(target.sx+target.swidth-40)&&by>(target.sy+20)&&by<(target.sy+target.swidth-20)){  
+    	console.log('打中了');  	
+    	target.img=bear2;  	
+    }
+    //判断球是否超出地面
+    if (by >= (ground.sy - 10)) {
+        clearInterval(timer);
+    }
+    if(bx>=(ground.sx+ground.oWidth-100)){
+    	clearInterval(timer);
+    }
+    //画出图形
+    drawAll();    
+}
 
 </script>
+
 </html>
