@@ -1,7 +1,7 @@
 <html>
 <head lang='zh'>
 	<title>炮弹模拟重力效果</title>
-	<!--  自定义对象 为对象添加属性和方法 用数组来存储对象 .push()方法-->
+	<!--  自定义对象 为对象添加属性和方法 用数组来存储对象 .push()方法 画布的旋转 rotate（）-->
 	<meta charset='utf-8'>
 	<style type="text/css">
 	canvas{
@@ -11,24 +11,41 @@
 	</style>
 </head>
 <body>
-<canvas height='600px;' width='800px;' style='block;' id='cv'></canvas>
-<form onsubmit='return fire();'>
-水平速度：<input name='hv' type='number' min='-100' max='100' id='hv'>
-垂直速度：<input name='gv' type='number' min='-100' max='100' id='gv'>
-<input id='Fire' type='submit' value='fire'></input>
-<span></span>
-</form>
+<canvas height='600px;' width='800px;' style='block;' id='cv'></canvas><br/>
+
+角度：<input type='number' min='-180' max='180' id='angle'>
+速度：<input type='number' min='-100' max='100' id='vel'>
+<button id='Fire'>Fire</button>
+
+
 </body>
 <script type="text/javascript">
 	var ctx;
 	var everything=[];//存储对象的数组 墙 球 目标
 	var timer;
-	var hv=10;
-	var gv1=0;
+	var hv=0;//水平初始速度
+	var gv1=0;//垂直初始速度
 	var gv2=0;
-	var gravity=2;
+	var gravity=0.5;
 	var ballX=20;
 	var ballY=20;
+	//炮
+	var cannonx=10;
+	var cannony=280;
+	var cannonlength=200;
+	var cannonht=40;
+	//没被击中的目标
+	var targetX=350;
+	var targetY=50;
+	var targetW=85;
+	var targetH=280;
+	//被击中后的目标
+	var htargetX=350;
+	var htargetY=220;
+	var htargetW=355;
+	var htargetH=96;
+
+	var angleHu;
 	ctx=document.getElementById('cv').getContext('2d');
 	//定义球对象
 	function Ball(sx,sy,rad,styleFill){
@@ -51,8 +68,8 @@
 		this.sy=this.sy+dy;
 	}
 	//建立一个Ball对象
-	var oBall=new Ball(ballX,ballY,20,'blue');
-	//定义墙对象和目标对象 因为都是长方形 具有的属性和方法都一样 所以放在一起定义
+	var oBall=new Ball(ballX,ballY,15,'blue');
+	//定义地对象和炮对象 长方形
 	function myRectangle(sx,sy,oWidth,oHeight,styleFill){
 		this.sx=sx;//属性
 		this.sy=sy;
@@ -65,17 +82,46 @@
 		ctx.fillStyle=this.fillStyle;
 		ctx.fillRect(this.sx,this.sy,this.oWidth,this.oHeight);
 	}
-	//建立目标对象和墙对象
-	var target=new myRectangle(300,100,80,200,'yellow');
-	var ground=new myRectangle(0,300,600,30,'gray');
-	//把建立好的对象存入everything数组
-	everything.push(oBall);
-	everything.push(target);
-	everything.push(ground);
+	//建立地对象和炮对象
+	
+	var ground=new myRectangle(0,320,600,30,'gray');
+	var cannon=new myRectangle(cannonx,cannony,cannonlength,cannonht,'rgb(40,40,0)');
+	//创建图片对象 存放目标图片、
+	function Picture(sx,sy,swidth,sheight,source)
+	{
+		var img=new Image();
+		img.src=source;
+		this.sx=sx;
+		this.sy=sy;
+		this.img=img;
+		this.swidth=swidth;
+		this.sheight=sheight;
+		this.draw=drawAnImage;//函数
+	}
+	function drawAnImage(){
+		ctx.drawImage(this.img,this.sx,this.sy,this.swidth,this.sheight);
+	}
+	//建立目标对象
+	var target=new Picture(targetX,targetY,targetW,targetH,'1.jpg');//没被击中的对象
+	var htarget=new Picture(htargetX,htargetY,htargetW,htargetH,'2.jpg');
+
+	//把建立好的对象存入everything数组 并保存对象的位置以便后续用
+	var targetIndex=everything.length;//第0个元素
+	everything.push([target,false]);//false是不旋转
+	everything.push([ground,false]);
+	var ballIndex=everything.length;//2
+	everything.push([oBall,false]);
+	var cannonIndex=everything.length;//3
+	everything.push([cannon,true,0,cannonx,cannony+cannonht*0.5]);
 
 	window.onload=function(){
+		oBall.sx=cannonx+cannonlength*Math.cos(angleHu);
+		oBall.sy=cannony-cannonlength*Math.sin(angleHu)+0.5*cannonht;
 		drawAll();//绘制所有对象
-		// timer=setInterval(change,50);
+		var oBtn=document.getElementById('Fire');
+		oBtn.onclick=function(){
+			fire();
+		}
 		
 	}
 	function drawAll(){
@@ -83,36 +129,70 @@
 		ctx.clearRect(0,0,800,600);
 		//绘制所有对象 
 		for(var i=0;i<everything.length;i++){
-			everything[i].draw();
+			var ob=everything[i];
+			if(ob[1])//需要旋转
+			{
+				ctx.save();//保存当前画布的轴
+				ctx.translate(ob[3],ob[4]);//移动轴的位置 移动至图形位置 使图形以自己左上角为顶点旋转
+				ctx.rotate(ob[2]);//旋转角度
+				ctx.translate(-ob[3],-ob[4]);//移动回原来的轴
+				ob[0].draw();//调用对象的draw（）方法
+				ctx.restore();//恢复轴
+			}
+			else{
+				
+				ob[0].draw();//否则直接绘制对象
+			}
 		}
 	}
 	function change(){
 		var dx=hv;//水平位移
-		gv1=gv2;
 		gv2=gv1+gravity;
 		var dy=(gv1+gv2)*0.5;//垂直位移
+		gv1=gv2;
 		oBall.moveit(dx,dy);
 		//判断球是否击中目标
 		var bx=oBall.sx;
 		var by=oBall.sy;
 		//如果子弹在目标范围内
-		if((bx>=target.sx)&&(bx<=(target.sx+target.oWidth))&&(by>=target.sy&&by<=(target.sy+target.oHeight))){
+		if(bx>=target.sx){
 			clearInterval(timer);
+			//删除target元素 在everything里面添加htarget元素
+			everything.splice(targetIndex,1,[htarget,false]);
+			//删除球对象
+			everything.splice(ballIndex,1);
 		}
 		//判断球是否超出地面
-		if(by>=ground.sy){
+		if(by>=(ground.sy-10)){
 			clearInterval(timer);
 		}
 		//画出图形
 		drawAll();
 	}
-	function fire(){
-			ballX=20;
-			ballY=20;
+	function fire(){	
+			if(everything.length<4){
+				//因为击中后会删除元素 所以在每次点击fire之前要判断everything中元素的个数 若不足 则要给everything重新赋值
+				everything=[];
+				targetIndex=everything.length;//第0个元素
+				everything.push([target,false]);//false是不旋转
+				everything.push([ground,false]);
+				ballIndex=everything.length;//2
+				everything.push([oBall,false]);
+				cannonIndex=everything.length;//3
+				everything.push([cannon,true,0,cannonx,cannony+cannonht*0.5]);
+				everything[targetIndex][0].draw();
+			}		
+			var angle=parseInt(document.getElementById('angle').value);//角度
+			var vel=parseInt(document.getElementById('vel').value);//速度
+			angleHu=angle*Math.PI/180;
+			hv=vel*Math.cos(angleHu);//水平速度
+			gv1=-vel*Math.sin(angleHu);//垂直速度
+			everything[cannonIndex][2]=-angleHu;//负数为逆向旋转
+			//设置球的位置 位于炮口
+			oBall.sx=cannonx+cannonlength*Math.cos(angleHu);
+			oBall.sy=cannony-cannonlength*Math.sin(angleHu)+0.5*cannonht;
 			drawAll();
-			hv=parseInt(document.getElementById('hv').value);
-			gravity=parseInt(document.getElementById('gv').value);			
-			timer=setInterval(change,50);
+			timer=setInterval(change,5);
 			return false;
 			
 	}
